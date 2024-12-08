@@ -12,9 +12,34 @@ class LinearRegression:
             self._df = pd.read_csv(path)
         print(f"Set the dataset of Linear Regression \"{self._tag}\"")
     
-    def setFeature(self, featureName: str):
+    def _showFeatureOrLabelOptions(self):
+        if self._df is None:
+            raise Exception("Try to set the dataset first using setDataset")
+        print("Possible feature/label options: ")
+        for col in self._df.columns:
+            print(col)
+    
+    def getHyperParameters(self):
+        learningR = float(input("Enter the learning rate: "))
+        if learningR<=0:
+            raise Exception("Learning Rate cannot be less than or equal to 0")
+        self._learningRate = learningR
+        batchS = int(input("Enter Batch Size: "))
+        if batchS <= 0:
+            raise Exception("Batch Size cannot be zero or a negative value.")
+        self._batchSize = batchS
+        epoch = int(input("Enter number of Epochs: "))
+        if epoch <=0:
+            raise Exception("Epochs cannot be zero or negative.")
+        self._epochs = epoch
+
+    def setFeature(self, featureName = None):
+        '''Passing no value for featureName asks the user for the feature.'''
         if self._df is None:
             raise Exception("Dataframe not found. try calling setDataset() first")
+        if featureName is None:
+            self._showFeatureOrLabelOptions()
+            featureName = input("Enter feature column name: ")
         if self._data is None:
             self._data = np.zeros((len(self._df), 2))
         if featureName not in self._df.columns:
@@ -23,9 +48,13 @@ class LinearRegression:
         print(f"Set feature of Linear Regression \"{self._tag}\" as \"{featureName}\": {len(self._df[featureName])} entries.")
         self._featureName = featureName
     
-    def setLabel(self, labelName: str):
+    def setLabel(self, labelName = None):
+        '''Passing no value for featureName asks the user for the label.'''
         if self._df is None:
             raise Exception("Dataframe not found. try calling setDataFrame() first")
+        if labelName is None:
+            self._showFeatureOrLabelOptions()
+            labelName = input("Enter label column name: ")
         if self._data is None:
             self._data = np.zeros((len(self._df), 2))
         if labelName not in self._df.columns:
@@ -35,7 +64,6 @@ class LinearRegression:
         self._labelName = labelName
     
     def _generateBatches(self, batchsize) -> list:
-
         np.random.shuffle(self._data)
         batchBoundaries = [batchsize*i for i in range((len(self._data)//batchsize)+1)]
         if len(self._data)%batchsize != 0:
@@ -44,10 +72,8 @@ class LinearRegression:
         batches = list()
         counter = 0
         while counter<(len(batchBoundaries)-1):
-            # batches.append([list(element) for element in self._data[batchBoundaries[counter]:batchBoundaries[counter+1]]])
             batches.append(self._data[batchBoundaries[counter]:batchBoundaries[counter+1]])
             counter+=1
-        # print(batches, len(batches), len(batches[0]))
         return batches
 
         # Old code
@@ -62,15 +88,12 @@ class LinearRegression:
         #     xBatch.append([element[0] for element in data[batchBoundaries[counter]:batchBoundaries[counter+1]]])
         #     yBatch.append([element[1] for element in data[batchBoundaries[counter]:batchBoundaries[counter+1]]])
         #     counter+=1
+
     def _lossGradient(self):
-        ...
         x = self._currBatch[:, 0]
         y = self._currBatch[:, 1]
         slopeGradient = np.sum(2*x*((self._weight*x) + self._bias - y), dtype=np.float32)
-        # print(np.sum(2*((self._weight*x)+self._bias-y), dtype=np.float32), np.sum(2*x*((self._weight*x) + self._bias - y), dtype=np.float32))
         biasGradient = np.sum(2*((self._weight*x)+self._bias-y), dtype=np.float32)
-        # print(slopeGradient, biasGradient, self._weight, self._bias)
-        # raise Exception
         return slopeGradient, biasGradient
 
     def _loss(self):
@@ -78,28 +101,27 @@ class LinearRegression:
         y = self._data[:, 1]
         return np.sum((y - (self._weight*x) - self._bias)**2)
 
-    def train(self, learningRate, batchSize, epochs):
-        self._learningRate = learningRate
-        self._batchSize = batchSize
-        self._epochs = epochs
-        if learningRate == 0 or epochs == 0 or batchSize == 0:
-            raise Exception("Hyperparameters cannot be zero")
-        # if len(self._data) != len(self._data):
-        #     raise Exception("Mismatch in dataset length")
-        self._lossValue = np.zeros((epochs, 2))
-        self._lossValue[:,0] = np.arange(start=1, stop = epochs+1)
+    def train(self, learningRate = None, batchSize = None, epochs = None):
+        self._learningRate = learningRate if learningRate is not None else self._learningRate
+        self._batchSize = batchSize if batchSize is not None else self._batchSize
+        self._epochs = epochs if batchSize is not None else self._epochs
+        if self._learningRate <= 0 or self._epochs <= 0 or self._batchSize <= 0:
+            raise Exception("Hyperparameters cannot be zero or negative")
+        self._lossValue = np.zeros((self._epochs, 2))
+        self._lossValue[:,0] = np.arange(start=1, stop = self._epochs+1)
         currentEpoch = 1
         self._weight: float = 0
         self._bias: float = 0
-        while currentEpoch <= epochs:
+        print(self._learningRate, self._batchSize, self._epochs)
+        while currentEpoch <= self._epochs:
             # Code for one epoch
-            batches = self._generateBatches(batchSize)
-            print(f"Training epoch {currentEpoch}... {len(batches)} batches... Loss = ", end="")
+            batches = self._generateBatches(self._batchSize)
+            print(f"Training epoch {currentEpoch}/{self._epochs} ... {len(batches)} batches... Loss = ", end="")
             for self._currBatch in batches:
                 # Code for one batch
                 gradientW, gradientB = self._lossGradient()
-                self._weight -= gradientW*learningRate
-                self._bias -= gradientB*learningRate
+                self._weight -= gradientW*self._learningRate
+                self._bias -= gradientB*self._learningRate
             self._lossValue[currentEpoch-1, 1] = self._loss()
             print(self._lossValue[currentEpoch-1, 1])
             currentEpoch+=1
@@ -135,7 +157,8 @@ class LinearRegression:
 if __name__ == "__main__":
     lr = LinearRegression("Taxi fares in Chicago")
     lr.setDataset("data.csv")
-    lr.setFeature("TRIP_MILES")
-    lr.setLabel("TRIP_TOTAL")
-    lr.train(0.000001, 1, 200)
+    lr.setFeature()
+    lr.setLabel()
+    lr.getHyperParameters()
+    lr.train()
     lr.showPlot()
